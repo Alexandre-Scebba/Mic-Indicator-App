@@ -34,6 +34,9 @@ public class MuteIndicator : Form
 
     public MuteIndicator()
     {
+        // Enabled double buffering to reduce flicker
+        this.DoubleBuffered = true;
+        
         // Read the registry to set the startupEnabled flag
         startupEnabled = IsStartupEnabled();
 
