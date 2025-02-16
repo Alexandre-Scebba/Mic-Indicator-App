@@ -5,7 +5,7 @@ using System.Runtime.InteropServices;
 using System.Windows.Forms;
 using System.Media;
 using NAudio.CoreAudioApi;
-using Microsoft.Win32; // For accessing the registry
+using Microsoft.Win32; // For registry access
 using WinFormsTimer = System.Windows.Forms.Timer;
 
 public class MuteIndicator : Form
@@ -16,11 +16,11 @@ public class MuteIndicator : Form
     private bool isMuted;
     private double pulsePhase = 0.0;
 
-    // Tray icon and menu fields
+    // Tray icon fields
     private NotifyIcon trayIcon;
     private ContextMenuStrip trayMenu;
     private bool soundEnabled = true;
-    private bool startupEnabled = false; // Tracks if the app is set to launch on startup
+    private bool startupEnabled = false;
 
     [DllImport("user32.dll")]
     private static extern bool GetCursorPos(out POINT lpPoint);
@@ -34,54 +34,56 @@ public class MuteIndicator : Form
 
     public MuteIndicator()
     {
-        // Initialize the startup flag from the registry.
+        // Read the registry to set the startupEnabled flag
         startupEnabled = IsStartupEnabled();
 
-        // Configure the main form (the floating indicator).
-        // Form dimensions: 55x18 (designed to be unobtrusive)
+        // Smaller overall form size: 60×18
         this.FormBorderStyle = FormBorderStyle.None;
         this.TopMost = true;
         this.Width = 55;
         this.Height = 18;
-        this.BackColor = Color.Black;           // Background color (not painted over)
-        this.TransparencyKey = Color.Magenta;     // Transparent color to hide unused areas
+        // We'll paint everything in OnPaint.
+        this.BackColor = Color.Black;
+        this.TransparencyKey = Color.Magenta;
         this.ShowInTaskbar = false;
+
+        // Round out the region to the form size
         this.Region = new Region(new Rectangle(0, 0, this.Width, this.Height));
 
-        // Initialize the current mute state from the system.
+        // Initialize mute state
         isMuted = GetMicMuteState();
 
-        // Timer that updates the window's position relative to the mouse cursor.
+        // Timer to update the position of the indicator
         mouseTracker = new WinFormsTimer();
         mouseTracker.Interval = 10;
         mouseTracker.Tick += UpdatePosition;
         mouseTracker.Start();
 
-        // Timer that polls the mic mute state every 500ms.
+        // Timer to check the mic mute state
         muteChecker = new WinFormsTimer();
         muteChecker.Interval = 500;
         muteChecker.Tick += CheckMuteState;
         muteChecker.Start();
 
-        // Timer that drives the pulsing effect for the indicator.
+        // Timer for pulse effect when unmuted
         pulseTimer = new WinFormsTimer();
         pulseTimer.Interval = 50;
         pulseTimer.Tick += PulseTimer_Tick;
         pulseTimer.Start();
 
-        // Set up the system tray icon and context menu.
+        // Set up tray icon and context menu
         trayMenu = new ContextMenuStrip();
-        // First menu item: Toggle mute state. Text will be updated in UpdateTrayIcon().
+        // First menu item: Mute/Unmute toggle (we'll update text in UpdateTrayIcon)
         trayMenu.Items.Add("", null, ToggleMute_Click);
-        // Second item: Sound toggle (checkable).
+        // Sound toggle
         var soundItem = new ToolStripMenuItem("Sound (On)") { CheckOnClick = true, Checked = soundEnabled };
         soundItem.Click += ToggleSound_Click;
         trayMenu.Items.Add(soundItem);
-        // Third item: Launch on Startup toggle (checkable). Reads the current setting.
+        //  startup toggle
         var startupItem = new ToolStripMenuItem("Launch on Startup (Off)") { CheckOnClick = true, Checked = startupEnabled };
         startupItem.Click += ToggleStartup_Click;
         trayMenu.Items.Add(startupItem);
-        // Fourth item: Toggle the mouse indicator visibility.
+        // mouse indicator toggle:
         var indicatorToggle = new ToolStripMenuItem("Hide Mouse Indicator");
         indicatorToggle.Click += (s, e) =>
         {
@@ -89,13 +91,13 @@ public class MuteIndicator : Form
             indicatorToggle.Text = this.Visible ? "Hide Mouse Indicator" : "Show Mouse Indicator";
         };
         trayMenu.Items.Add(indicatorToggle);
-        // Final item: Exit the application.
+        // Exit
         trayMenu.Items.Add("Exit", null, Exit_Click);
 
         trayIcon = new NotifyIcon();
         trayIcon.ContextMenuStrip = trayMenu;
         trayIcon.Visible = true;
-        // Enable left-click on the tray icon to toggle mute.
+        // Left-click tray icon => toggle mute
         trayIcon.MouseUp += TrayIcon_MouseUp;
 
         UpdateTrayIcon();
@@ -103,7 +105,6 @@ public class MuteIndicator : Form
 
     private void UpdatePosition(object? sender, EventArgs e)
     {
-        // Update the position of the floating window to follow the cursor.
         if (GetCursorPos(out POINT cursor))
         {
             this.Left = cursor.X + 10;
@@ -113,20 +114,18 @@ public class MuteIndicator : Form
 
     private void CheckMuteState(object? sender, EventArgs e)
     {
-        // Poll the system's mute state.
         bool newMuteState = GetMicMuteState();
         if (newMuteState != isMuted)
         {
-            // Play a sound if enabled when the state changes.
             if (newMuteState)
             {
                 if (soundEnabled)
-                    SystemSounds.Hand.Play(); // Sound for muting
+                    SystemSounds.Hand.Play(); // click for muting
             }
             else
             {
                 if (soundEnabled)
-                    SystemSounds.Beep.Play(); // Sound for unmuting
+                    SystemSounds.Beep.Play(); // beep for unmuting
             }
             isMuted = newMuteState;
             UpdateTrayIcon();
@@ -138,7 +137,6 @@ public class MuteIndicator : Form
     {
         try
         {
-            // Retrieve the default capture device and return its mute state.
             using (var enumerator = new MMDeviceEnumerator())
             {
                 MMDevice device;
@@ -161,7 +159,7 @@ public class MuteIndicator : Form
 
     private void PulseTimer_Tick(object? sender, EventArgs e)
     {
-        // Update the pulse phase to create an animated effect.
+        // Pulse in both states
         pulsePhase += 0.2;
         if (pulsePhase > Math.PI * 2)
             pulsePhase -= Math.PI * 2;
@@ -174,20 +172,22 @@ public class MuteIndicator : Form
         Graphics g = e.Graphics;
         g.SmoothingMode = SmoothingMode.AntiAlias;
 
-        // Define a 16x16 box to serve as the indicator.
+        // Define a 16×16 indicator box at left with small margin
         int margin = 1;
+        // Using your original rectangle: (this.Height - 37)/2, 16,16
         Rectangle boxRect = new Rectangle(margin, (this.Height - 37) / 2, 16, 16);
 
         if (!isMuted)
         {
-            // When unmuted, fill the box with a pulsing red color.
-            int redValue = (int)(80 + 175 * ((Math.Sin(pulsePhase) + 1) / 2));
-            Color fillColor = Color.FromArgb(redValue, 0, 0);
+            // Unmuted: fill the box with a pulsing red color.
+            int greenValue = (int)(80 + 175 * ((Math.Sin(pulsePhase) + 1) / 2));
+            Color fillColor = Color.FromArgb(0, greenValue, 0);
             using (SolidBrush brush = new SolidBrush(fillColor))
             {
                 g.FillRectangle(brush, boxRect);
             }
-            // Draw the text "UNMUTED" next to the indicator.
+
+            // Draw small text "UNMUTED" flush with the box
             string text = "UNMUTED";
             using (Font font = new Font("Segoe UI", 7, FontStyle.Bold))
             using (SolidBrush textBrush = new SolidBrush(Color.White))
@@ -200,16 +200,14 @@ public class MuteIndicator : Form
         }
         else
         {
-            // When muted, fill the box with a pulsing grey (silver) color.
+            // Muted: fill the box with a pulsing green color.
             int redValue = (int)(80 + 175 * ((Math.Sin(pulsePhase) + 1) / 2));
-            Color fillColor = Color.FromArgb(redValue, 0, 0); // We'll use redValue only for the pulsing effect calculation.
-            // For muted, override with Silver.
-            fillColor = Color.Silver;
+            Color fillColor = Color.FromArgb(redValue, 0, 0);
             using (SolidBrush bgBrush = new SolidBrush(fillColor))
             {
                 g.FillRectangle(bgBrush, boxRect);
             }
-            // Draw the text "MUTED" next to the indicator.
+            // Draw small text "MUTED" flush with the box.
             string text = "MUTED";
             using (Font font = new Font("Segoe UI", 7, FontStyle.Bold))
             using (SolidBrush textBrush = new SolidBrush(Color.White))
@@ -221,7 +219,7 @@ public class MuteIndicator : Form
             }
         }
 
-        // Draw a subtle white border around the entire form.
+        // Optional: subtle white border around entire form
         using (Pen borderPen = new Pen(Color.White, 1))
         {
             g.DrawRectangle(borderPen, 0, 0, this.Width - 1, this.Height - 1);
@@ -230,7 +228,7 @@ public class MuteIndicator : Form
 
     // --- Tray Icon & Menu Handlers ---
 
-    // When the user left-clicks the tray icon, toggle the mute state.
+    // Left-click on tray icon toggles mute
     private void TrayIcon_MouseUp(object? sender, MouseEventArgs e)
     {
         if (e.Button == MouseButtons.Left)
@@ -263,7 +261,7 @@ public class MuteIndicator : Form
             }
         }
         catch { }
-        // The muteChecker timer will detect and update the new state.
+        // muteChecker will pick up the new state.
     }
 
     private void ToggleSound_Click(object sender, EventArgs e)
@@ -285,51 +283,6 @@ public class MuteIndicator : Form
         Application.Exit();
     }
 
-    // Update the tray icon and menu text to reflect the current state.
-    private void UpdateTrayIcon()
-    {
-        trayMenu.Items[0].Text = isMuted ? "Unmute" : "Mute";
-        trayIcon.Icon = GenerateTrayIcon(isMuted);
-        trayIcon.Text = isMuted ? "Muted" : "Unmuted";
-    }
-
-    private Icon GenerateTrayIcon(bool muted)
-    {
-        // Generate a 16x16 tray icon using your specified dimensions.
-        Bitmap bmp = new Bitmap(16, 16);
-        using (Graphics g = Graphics.FromImage(bmp))
-        {
-            g.Clear(Color.Transparent);
-            // Use white for unmuted; use Silver for muted.
-            Color micColor = muted ? Color.DimGray : Color.White;
-            using (SolidBrush brush = new SolidBrush(micColor))
-            {
-                // Draw the mic head as a short rectangle.
-                // (Coordinates chosen to center the mic design.)
-                Rectangle headRect = new Rectangle(5, 2, 6, 4);
-                g.FillRectangle(brush, headRect);
-
-                // Draw the mic stand as a thin vertical line.
-                Rectangle bodyRect = new Rectangle(8, 6, 1, 4);
-                g.FillRectangle(brush, bodyRect);
-
-                // Draw the base as a horizontal ellipse.
-                g.FillEllipse(brush, new Rectangle(4, 10, 8, 3));
-            }
-            // If muted, add a red diagonal slash.
-            if (muted)
-            {
-                using (Pen redPen = new Pen(Color.Red, 2))
-                {
-                    g.DrawLine(redPen, 2, 2, 14, 14);
-                }
-            }
-        }
-        return Icon.FromHandle(bmp.GetHicon());
-    }
-
-    // --- Startup Registry Helpers ---
-
     private bool IsStartupEnabled()
     {
         using (RegistryKey key = Registry.CurrentUser.OpenSubKey(@"Software\Microsoft\Windows\CurrentVersion\Run", false))
@@ -347,6 +300,75 @@ public class MuteIndicator : Form
             else
                 key.DeleteValue("MuteIndicator", false);
         }
+    }
+
+    private void UpdateTrayIcon()
+    {
+        trayMenu.Items[0].Text = isMuted ? "Muted (Toggle)" : "Unmuted (Toggle)";
+        trayIcon.Icon = GenerateTrayIcon(isMuted);
+        trayIcon.Text = isMuted ? "Muted" : "Unmuted";
+    }
+
+    private Icon GenerateTrayIcon(bool muted)
+    {
+        // 16x16 icon, with a short rectangle top + stand + base
+        Bitmap bmp = new Bitmap(16, 16);
+        using (Graphics g = Graphics.FromImage(bmp))
+        {
+            g.Clear(Color.Transparent);
+            // draws the mic color in black if muted, white if unmuted
+            Color micColor = muted ? Color.Silver : Color.White;
+            using (SolidBrush brush = new SolidBrush(micColor))
+            {
+                // Short rectangle top - a 6x5 rectangle for the mic head
+                // at (5,2) so it's fairly centered horizontally
+                Rectangle headRect = new Rectangle(4, 0, 8, 12);
+                g.FillRectangle(brush, headRect);
+
+                // some lines to make it look like a mic stand
+                // thin rectangle from y=7 down to y=10
+                // (, , , , +V-length )
+                Rectangle standRect = new Rectangle(7, 7, 1, 9);
+                g.FillRectangle(brush, standRect);
+
+                // a base - a small horizontal ellipse at y=12
+                // e.g. (3,12,10,3)
+                //(-left, -height , +length, +thick)
+                using (GraphicsPath basePath = new GraphicsPath())
+                {
+                    basePath.AddEllipse(new Rectangle(5, 14, 6, 2));
+                    g.FillPath(brush, basePath);
+                }
+
+                using (GraphicsPath basetopPath = new GraphicsPath())
+                {
+                    basetopPath.AddEllipse(new Rectangle(2, 12, 12, 2));
+                    g.FillPath(brush, basetopPath);
+                }
+
+                //(-left, -height , +length, +thick)
+                using (GraphicsPath vleftPath = new GraphicsPath())
+                {
+                    vleftPath.AddEllipse(new Rectangle(1, 8, 2, 5));
+                    g.FillPath(brush, vleftPath);
+                }
+
+                using (GraphicsPath vrightPath = new GraphicsPath())
+                {
+                    vrightPath.AddEllipse(new Rectangle(12, 8, 2, 5));
+                    g.FillPath(brush, vrightPath);
+                }
+            }
+            // If muted, adds a red slash
+            if (muted)
+            {
+                using (Pen redPen = new Pen(Color.Red, 2))
+                {
+                    g.DrawLine(redPen, 2, 2, 14, 14);
+                }
+            }
+        }
+        return Icon.FromHandle(bmp.GetHicon());
     }
 
     [STAThread]
