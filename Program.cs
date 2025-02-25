@@ -359,8 +359,7 @@ public class MuteIndicator : Form
                 // Short rectangle top - a 6x5 rectangle for the mic head
                 // at (5,2) so it's fairly centered horizontally
                 Rectangle headRect = new Rectangle(4, 0, 8, 12);
-                using (GraphicsPath roundedHead = CreateRoundedRectanglePath(headRect, 1))
-                    g.FillPath(brush, roundedHead);
+                g.FillRectangle(brush, headRect);
                 // some lines to make it look like a mic stand
                 // thin rectangle from y=7 down to y=10
                 // (, , , , +V-length )
