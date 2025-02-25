@@ -35,7 +35,11 @@ public class MuteIndicator : Form
     public MuteIndicator()
     {
         // Enabled double buffering to reduce flicker
-        this.DoubleBuffered = true;  
+        this.DoubleBuffered = true;
+
+        // allowing transparency selection to be saved after closing the app
+        this.Opacity = GetTransparencySetting();
+
 
         // Read the registry to set the startupEnabled flag
         startupEnabled = IsStartupEnabled();
@@ -87,11 +91,26 @@ public class MuteIndicator : Form
         startupItem.Click += ToggleStartup_Click;
         trayMenu.Items.Add(startupItem);
         //Transparancy submenu item
+        // Create a Transparency submenu with radio-style items.
         var transparencyItem = new ToolStripMenuItem("Transparency");
-        transparencyItem.DropDownItems.Add("100%", null, (s, e) => { this.Opacity = 1.0; });
-        transparencyItem.DropDownItems.Add("75%", null, (s, e) => { this.Opacity = 0.75; });
-        transparencyItem.DropDownItems.Add("50%", null, (s, e) => { this.Opacity = 0.5; });
-        transparencyItem.DropDownItems.Add("25%", null, (s, e) => { this.Opacity = 0.35; });
+        var opacity100 = new ToolStripMenuItem("100%") { Tag = 1.0 };
+        var opacity75 = new ToolStripMenuItem("75%") { Tag = 0.75 };
+        var opacity50 = new ToolStripMenuItem("50%") { Tag = 0.5 };
+        var opacity25 = new ToolStripMenuItem("25%") { Tag = 0.35 };
+
+        opacity100.Click += TransparencyItem_Click;
+        opacity75.Click += TransparencyItem_Click;
+        opacity50.Click += TransparencyItem_Click;
+        opacity25.Click += TransparencyItem_Click;
+
+
+        // Add the items to the submenu.
+        transparencyItem.DropDownItems.Add(opacity100);
+        transparencyItem.DropDownItems.Add(opacity75);
+        transparencyItem.DropDownItems.Add(opacity50);
+        transparencyItem.DropDownItems.Add(opacity25);
+        trayMenu.Items.Add(transparencyItem);
+
 
         trayMenu.Items.Add(transparencyItem);
         // mouse indicator toggle:
@@ -320,28 +339,38 @@ public class MuteIndicator : Form
         trayIcon.Text = isMuted ? "Muted" : "Unmuted";
     }
 
-    private GraphicsPath CreateRoundedRectanglePath(Rectangle rect, int radius)
+    private double GetTransparencySetting()
     {
-        int diameter = radius * 2;
-        GraphicsPath path = new GraphicsPath();
-        // Top-left arc.
-        path.AddArc(rect.X, rect.Y, diameter, diameter, 180, 70);
-        // Top edge.
-        path.AddLine(rect.X + radius, rect.Y, rect.Right - radius, rect.Y);
-        // Top-right arc.
-        path.AddArc(rect.Right - diameter, rect.Y, diameter, diameter, 270, 90);
-        // Right edge.
-        path.AddLine(rect.Right, rect.Y + radius, rect.Right, rect.Bottom - radius);
-        // Bottom-right arc.
-        path.AddArc(rect.Right - diameter, rect.Bottom - diameter, diameter, diameter, 20, 150);
-        // Bottom edge.
-        path.AddLine(rect.Right - radius, rect.Bottom, rect.X + radius, rect.Bottom);
-        // Bottom-left arc.
-        path.AddArc(rect.X, rect.Bottom - diameter, diameter, diameter, 90, 40);
-        // Left edge.
-        path.AddLine(rect.X, rect.Bottom - radius, rect.X, rect.Y + radius);
-        path.CloseFigure();
-        return path;
+        using (RegistryKey key = Registry.CurrentUser.OpenSubKey(@"Software\MuteIndicator", false))
+        {
+            if (key?.GetValue("Opacity") != null)
+                return Convert.ToDouble(key.GetValue("Opacity"));
+        }
+        return 1.0; // default opacity
+    }
+
+    private void SetTransparencySetting(double opacity)
+    {
+        using (RegistryKey key = Registry.CurrentUser.CreateSubKey(@"Software\MuteIndicator"))
+        {
+            key.SetValue("Opacity", opacity);
+        }
+    }
+
+    private void TransparencyItem_Click(object sender, EventArgs e)
+    {
+        var clicked = sender as ToolStripMenuItem;
+        double value = (double)clicked.Tag;
+        // Set the window opacity and save the setting.
+        this.Opacity = value;
+        SetTransparencySetting(value);
+        // Uncheck all transparency items.
+        foreach (ToolStripMenuItem item in ((ToolStripMenuItem)clicked.OwnerItem).DropDownItems)
+        {
+            item.Checked = false;
+        }
+        // Check the selected item.
+        clicked.Checked = true;
     }
 
 
