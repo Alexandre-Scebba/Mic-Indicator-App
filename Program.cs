@@ -35,8 +35,8 @@ public class MuteIndicator : Form
     public MuteIndicator()
     {
         // Enabled double buffering to reduce flicker
-        this.DoubleBuffered = true;
-        
+        this.DoubleBuffered = true;  
+
         // Read the registry to set the startupEnabled flag
         startupEnabled = IsStartupEnabled();
 
@@ -86,6 +86,14 @@ public class MuteIndicator : Form
         var startupItem = new ToolStripMenuItem("Launch on Startup (Off)") { CheckOnClick = true, Checked = startupEnabled };
         startupItem.Click += ToggleStartup_Click;
         trayMenu.Items.Add(startupItem);
+        //Transparancy submenu item
+        var transparencyItem = new ToolStripMenuItem("Transparency");
+        transparencyItem.DropDownItems.Add("100%", null, (s, e) => { this.Opacity = 1.0; });
+        transparencyItem.DropDownItems.Add("75%", null, (s, e) => { this.Opacity = 0.75; });
+        transparencyItem.DropDownItems.Add("50%", null, (s, e) => { this.Opacity = 0.5; });
+        transparencyItem.DropDownItems.Add("25%", null, (s, e) => { this.Opacity = 0.35; });
+
+        trayMenu.Items.Add(transparencyItem);
         // mouse indicator toggle:
         var indicatorToggle = new ToolStripMenuItem("Hide Mouse Indicator");
         indicatorToggle.Click += (s, e) =>
@@ -312,6 +320,31 @@ public class MuteIndicator : Form
         trayIcon.Text = isMuted ? "Muted" : "Unmuted";
     }
 
+    private GraphicsPath CreateRoundedRectanglePath(Rectangle rect, int radius)
+    {
+        int diameter = radius * 2;
+        GraphicsPath path = new GraphicsPath();
+        // Top-left arc.
+        path.AddArc(rect.X, rect.Y, diameter, diameter, 180, 70);
+        // Top edge.
+        path.AddLine(rect.X + radius, rect.Y, rect.Right - radius, rect.Y);
+        // Top-right arc.
+        path.AddArc(rect.Right - diameter, rect.Y, diameter, diameter, 270, 90);
+        // Right edge.
+        path.AddLine(rect.Right, rect.Y + radius, rect.Right, rect.Bottom - radius);
+        // Bottom-right arc.
+        path.AddArc(rect.Right - diameter, rect.Bottom - diameter, diameter, diameter, 20, 150);
+        // Bottom edge.
+        path.AddLine(rect.Right - radius, rect.Bottom, rect.X + radius, rect.Bottom);
+        // Bottom-left arc.
+        path.AddArc(rect.X, rect.Bottom - diameter, diameter, diameter, 90, 40);
+        // Left edge.
+        path.AddLine(rect.X, rect.Bottom - radius, rect.X, rect.Y + radius);
+        path.CloseFigure();
+        return path;
+    }
+
+
     private Icon GenerateTrayIcon(bool muted)
     {
         // 16x16 icon, with a short rectangle top + stand + base
@@ -326,8 +359,8 @@ public class MuteIndicator : Form
                 // Short rectangle top - a 6x5 rectangle for the mic head
                 // at (5,2) so it's fairly centered horizontally
                 Rectangle headRect = new Rectangle(4, 0, 8, 12);
-                g.FillRectangle(brush, headRect);
-
+                using (GraphicsPath roundedHead = CreateRoundedRectanglePath(headRect, 1))
+                    g.FillPath(brush, roundedHead);
                 // some lines to make it look like a mic stand
                 // thin rectangle from y=7 down to y=10
                 // (, , , , +V-length )
