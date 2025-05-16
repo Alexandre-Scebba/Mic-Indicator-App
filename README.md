@@ -22,8 +22,7 @@
 ## 📥 Download
 
 Download the standalone Windows build (no prerequisites):
-
-![🔽 MuteIndicator v1.0.0 (Windows x64)](https://github.com/user-attachments/assets/020c972e-bef6-4b74-a6ca-f75f2dba6ee8)
+[🔽 MuteIndicator v1.0.0 (Windows x64)](https://github.com/Alexandre-Scebba/Mic-Indicator-App/releases/tag/1.0.0)
 
 ---
 
@@ -44,7 +43,7 @@ Download the standalone Windows build (no prerequisites):
 
 ## 🎨 Screenshots/Demo
 
-![GIF-Demo](https://github.com/user-attachments/assets/2bde22ec-b3e3-49fc-802a-93d1134c648f)
+![GIF-Demo](https://github.com/user-attachments/assets/020c972e-bef6-4b74-a6ca-f75f2dba6ee8)
 
 
 ---
